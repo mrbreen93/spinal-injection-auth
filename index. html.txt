@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spinal Injection Prior Authorization Analyzer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; background-color: #f4f4f4; }
+    h1 { color: #333; }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    select, textarea { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 20px; padding: 10px 20px; background-color: #0072CE; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #005BB5; }
+    .result { margin-top: 30px; padding: 20px; background-color: #fff; border-left: 5px solid #0072CE; }
+    .warning { border-left-color: #E74C3C; }
+    .success { border-left-color: #2ECC71; }
+  </style>
+</head>
+<body>
+  <h1>Spinal Injection Prior Authorization Analyzer</h1>
+
+  <label for="insurance">Insurance Carrier</label>
+  <select id="insurance">
+    <option value="">-- Select Insurance --</option>
+    <option value="uhc">UnitedHealthcare</option>
+    <option value="bcbs">Blue Cross Blue Shield</option>
+    <option value="aetna">Aetna</option>
+    <option value="cigna">Cigna</option>
+    <option value="other">Other Commercial</option>
+  </select>
+
+  <label for="procedure">Procedure Requested</label>
+  <select id="procedure">
+    <option value="">-- Select Procedure --</option>
+    <option value="facet">Facet Injection / MBB / RFA</option>
+    <option value="epidural">Epidural Steroid Injection</option>
+  </select>
+
+  <label for="note">Paste Patient Office Note:</label>
+  <textarea id="note" rows="15" placeholder="Paste full office note here..."></textarea>
+
+  <button onclick="analyzeNote()">Analyze Authorization</button>
+
+  <div id="result" class="result"></div>
+
+  <script>
+    function analyzeNote() {
+      const insurance = document.getElementById('insurance').value;
+      const procedure = document.getElementById('procedure').value;
+      const noteText = document.getElementById('note').value.toLowerCase();
+      const resultDiv = document.getElementById('result');
+      resultDiv.className = 'result';
+      let missing = [];
+
+      if (!insurance || !procedure || !noteText) {
+        resultDiv.classList.add('warning');
+        resultDiv.innerHTML = "<strong>Error:</strong> Please select insurance, procedure, and paste the office note.";
+        return;
+      }
+
+      // Keyword detection lists
+      const axialPainKeywords = ["axial", "central low back", "facet pain", "paraspinal"];
+      const facetExamKeywords = ["facet loading", "kemp", "palpation tenderness", "facet provocation"];
+      const conservativeKeywords = ["physical therapy", "pt", "medication", "cymbalta", "gabapentin", "nsaids", "ibuprofen"];
+      const imagingKeywords = ["facet hypertrophy", "facet fluid", "facet arthropathy", "l3-4", "l4-5", "l5-s1", "herniation", "stenosis"];
+      const rfaKeywords = ["radiofrequency", "rfa", "denervation"];
+      const epiduralKeywords = ["epidural", "esi", "steroid injection", "transforaminal", "interlaminar"];
+
+      // Detection
+      const hasAxialPain = axialPainKeywords.some(word => noteText.includes(word));
+      const hasFacetExam = facetExamKeywords.some(word => noteText.includes(word));
+      const hasConservative = conservativeKeywords.some(word => noteText.includes(word));
+      const hasImaging = imagingKeywords.some(word => noteText.includes(word));
+      const hasRFA = rfaKeywords.some(word => noteText.includes(word));
+      const hasPriorESI = epiduralKeywords.some(word => noteText.includes(word));
+
+      if (procedure === "facet") {
+        if (!hasAxialPain) missing.push("Document axial facet pain");
+        if (!hasFacetExam) missing.push("Document facet-loading physical exam");
+        if (!hasConservative) missing.push("Document 4–6 week conservative therapy/PT trial");
+        if (!hasImaging) missing.push("Correlate imaging with pain location");
+        if (!hasRFA) missing.push("Document plan for RFA contingent on diagnostic block");
+
+        if (missing.length === 0) {
+          resultDiv.classList.add('success');
+          resultDiv.innerHTML = "<strong>Likely Approved</strong> – Documentation meets typical commercial insurance criteria for facet injections / MBB / RFA.";
+        } else {
+          resultDiv.classList.add('warning');
+          resultDiv.innerHTML = "<strong>Likely Denied / Needs More Documentation</strong><br>Missing Items:<ul><li>" + missing.join("</li><li>") + "</li></ul>";
+        }
+      }
+
+      if (procedure === "epidural") {
+        if (!hasConservative) missing.push("Document 4–6 week conservative therapy/PT/medications trial");
+        if (!hasImaging) missing.push("Document MRI/CT imaging correlating with radicular or axial pain");
+        if (!hasPriorESI) missing.push("Document prior ESIs and response");
+
+        if (missing.length === 0) {
+          resultDiv.classList.add('success');
+          resultDiv.innerHTML = "<strong>Likely Approved</strong> – Documentation meets typical commercial insurance criteria for epidural steroid injection.";
+        } else {
+          resultDiv.classList.add('warning');
+          resultDiv.innerHTML = "<strong>Likely Denied / Needs More Documentation</strong><br>Missing Items:<ul><li>" + missing.join("</li><li>") + "</li></ul>";
+        }
+      }
+    }
+  </script>
+</body>
+</html>
